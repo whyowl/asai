@@ -25,7 +25,7 @@ func NewAgent() *Agent {
 	}
 }
 
-func (a *Agent) Process(input string) (string, error) {
+func (a *Agent) HandleInput(userID int64, input string) (string, error) {
 	// Если ключевое слово — bitwarden, вызываем инструмент напрямую
 	if strings.Contains(strings.ToLower(input), "bitwarden") {
 		return a.tools["bitwarden"].Execute(input)

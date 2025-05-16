@@ -1,33 +1,40 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
-	"os"
-
+	"asai/cmd/cli"
+	"asai/cmd/http"
+	"asai/cmd/telegram"
 	"asai/internal/core"
+	"context"
+	"flag"
+	"github.com/joho/godotenv"
+	"log"
 )
 
 func main() {
+
+	var envs map[string]string
+	envs, err := godotenv.Read(".env")
+
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	mode := flag.String("mode", "telegram", "Interface mode: cli | http | telegram")
+	flag.Parse()
+
+	ctx := context.Background()
+
 	agent := core.NewAgent()
 
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Asai: локальный ИИ-агент. Напиши команду:")
-
-	for {
-		fmt.Print("> ")
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			fmt.Println("Ошибка чтения ввода:", err)
-			continue
-		}
-
-		output, err := agent.Process(input)
-		if err != nil {
-			fmt.Println("Ошибка:", err)
-			continue
-		}
-
-		fmt.Println(output)
+	switch *mode {
+	case "cli":
+		cli.Run(ctx, agent)
+	case "http":
+		http.Run(ctx, agent)
+	case "telegram":
+		telegram.Run(ctx, agent, envs["TELEGRAM_TOKEN"])
+	default:
+		log.Fatalf("Unknown mode: %s", *mode)
 	}
 }

@@ -34,7 +34,7 @@ func NewLlamaClient() *LlamaClient {
 		apiBase = "http://localhost:11434"
 	}
 	if model == "" {
-		model = "llama3.2:1b"
+		model = "llama3.1:8b"
 	}
 
 	return &LlamaClient{
