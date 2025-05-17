@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 )
 
@@ -26,36 +25,33 @@ type llamaResponse struct {
 	Done     bool   `json:"done"`
 }
 
-func NewLlamaClient() *LlamaClient {
-	apiBase := os.Getenv("ASAI_LLM_API_BASE")
-	model := os.Getenv("ASAI_LLM_MODEL")
+func NewLlamaClient(uri string, model string) *LlamaClient {
 
-	if apiBase == "" {
-		apiBase = "http://localhost:11434"
+	if uri == "" {
+		uri = "http://localhost:11434"
 	}
 	if model == "" {
 		model = "llama3.1:8b"
 	}
 
 	return &LlamaClient{
-		ApiBase: strings.TrimRight(apiBase, "/"),
+		ApiBase: strings.TrimRight(uri, "/"),
 		Model:   model,
 	}
 }
 
-func (c *LlamaClient) Generate(prompt string) (string, error) {
+func (c *LlamaClient) Generate(prompt []Message) (string, error) {
 	url := fmt.Sprintf("%s/api/generate", c.ApiBase)
-
+	fmt.Println(prompt)
 	reqBody := llamaRequest{
 		Model:  c.Model,
-		Prompt: prompt,
+		Prompt: FormatMessagesForPrompt(prompt),
 		Stream: false,
 	}
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
 		return "", err
 	}
-
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		return "", err
@@ -80,4 +76,23 @@ func (c *LlamaClient) Generate(prompt string) (string, error) {
 	}
 
 	return respObj.Response, nil
+}
+
+func FormatMessagesForPrompt(messages []Message) string {
+	var sb strings.Builder
+
+	for _, msg := range messages {
+		switch msg.Role {
+		case "system":
+			sb.WriteString("### System:\n")
+		case "user":
+			sb.WriteString("### User:\n")
+		case "assistant":
+			sb.WriteString("### Assistant:\n")
+		}
+		sb.WriteString(msg.Content)
+		sb.WriteString("\n\n")
+	}
+
+	return sb.String()
 }

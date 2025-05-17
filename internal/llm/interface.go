@@ -1,5 +1,10 @@
 package llm
 
+type Message struct {
+	Role    string
+	Content string
+}
+
 type LLM interface {
-	Generate(prompt string) (string, error)
+	Generate(prompt []Message) (string, error)
 }
