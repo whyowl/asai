@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -15,14 +16,17 @@ type LlamaClient struct {
 }
 
 type llamaRequest struct {
-	Model  string `json:"model"`
-	Prompt string `json:"prompt"`
-	Stream bool   `json:"stream"`
+	Model    string    `json:"model"`
+	Messages []Message `json:"messages"`
+	Stream   bool      `json:"stream"`
 }
 
 type llamaResponse struct {
-	Response string `json:"response"`
-	Done     bool   `json:"done"`
+	Model      string  `json:"model"`
+	CreatedAt  string  `json:"created_at"` //уточнить тип данных
+	Message    Message `json:"message"`
+	DoneReason string  `json:"done_reason"`
+	Done       bool    `json:"done"`
 }
 
 func NewLlamaClient(uri string, model string) *LlamaClient {
@@ -40,59 +44,47 @@ func NewLlamaClient(uri string, model string) *LlamaClient {
 	}
 }
 
-func (c *LlamaClient) Generate(prompt []Message) (string, error) {
-	url := fmt.Sprintf("%s/api/generate", c.ApiBase)
-	fmt.Println(prompt)
+func (c *LlamaClient) Generate(messages []Message) (Message, error) {
+	url := fmt.Sprintf("%s/api/chat", c.ApiBase)
 	reqBody := llamaRequest{
-		Model:  c.Model,
-		Prompt: FormatMessagesForPrompt(prompt),
-		Stream: false,
+		Model:    c.Model,
+		Messages: messages,
+		Stream:   false,
 	}
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", err
+		return Message{}, err
 	}
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
 	if err != nil {
-		return "", err
+		return Message{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return Message{}, err
 	}
 	defer resp.Body.Close()
 
+	if os.Getenv("DEBUG") == "true" {
+		fmt.Printf("response from url: %s\n", resp)
+	}
+
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return Message{}, err
 	}
 
 	var respObj llamaResponse
 	err = json.Unmarshal(respBytes, &respObj)
 	if err != nil {
-		return "", fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
+		return Message{}, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
 	}
 
-	return respObj.Response, nil
-}
-
-func FormatMessagesForPrompt(messages []Message) string {
-	var sb strings.Builder
-
-	for _, msg := range messages {
-		switch msg.Role {
-		case "system":
-			sb.WriteString("### System:\n")
-		case "user":
-			sb.WriteString("### User:\n")
-		case "assistant":
-			sb.WriteString("### Assistant:\n")
-		}
-		sb.WriteString(msg.Content)
-		sb.WriteString("\n\n")
+	if os.Getenv("DEBUG") == "true" {
+		fmt.Printf("response json: %s\n", respObj)
 	}
 
-	return sb.String()
+	return respObj.Message, nil
 }

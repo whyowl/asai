@@ -6,5 +6,5 @@ type Message struct {
 }
 
 type LLM interface {
-	Generate(prompt []Message) (string, error)
+	Generate(prompt []Message) (Message, error)
 }

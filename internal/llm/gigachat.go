@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	tokenURL = "https://ngw.devices.sberbank.ru:9443/api/v2/oauth" // Заменить на фактический URL API
-	scope    = "GIGACHAT_API_PERS"                                 // Или GIGACHAT_API_PERS, GIGACHAT_API_CORP
+	tokenURL = "https://ngw.devices.sberbank.ru:9443/api/v2/oauth"
+	scope    = "GIGACHAT_API_PERS"
 )
 
 type gigaChatAccessToken struct {
@@ -64,7 +64,7 @@ type ResponseMessage struct {
 
 type FunctionCall struct {
 	Name      string                 `json:"name"`
-	Arguments map[string]interface{} `json:"arguments"` // универсальный формат
+	Arguments map[string]interface{} `json:"arguments"`
 }
 
 type UsageStats struct {
@@ -90,7 +90,7 @@ func NewGigaChatClient(uri string, model string) *gigaChatClient {
 	}
 }
 
-func (c *gigaChatClient) Generate(prompt []Message) (string, error) {
+func (c *gigaChatClient) Generate(messages []Message) (string, error) {
 
 	if c.accessToken.ExpiresAt <= time.Now().Unix() {
 		err := c.accessRequest(os.Getenv("GIGACHAT_CLIENT_SECRET"))
@@ -102,7 +102,7 @@ func (c *gigaChatClient) Generate(prompt []Message) (string, error) {
 	url := fmt.Sprintf("%s/api/v1/chat/completions", c.ApiBase)
 	reqBody := gigaChatRequest{
 		Model:    c.Model,
-		Messages: prompt,
+		Messages: messages,
 	}
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {

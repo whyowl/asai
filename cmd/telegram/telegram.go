@@ -3,6 +3,8 @@ package telegram
 import (
 	"context"
 	"log"
+	"os"
+	"strconv"
 	"time"
 
 	"asai/internal/core"
@@ -36,19 +38,26 @@ func Run(ctx context.Context, a *core.Agent, token string) {
 			}(chn)
 
 			msg := update.Message
-			reply, err := a.HandleInput(msg.Chat.ID, msg.Text)
-			if err != nil {
+			if idOwner := os.Getenv("TELEGRAM_ID_OWNER"); idOwner == "" || idOwner == strconv.FormatInt(msg.Chat.ID, 10) {
+				reply, err := a.HandleInput(msg.Chat.ID, msg.Text)
+				if err != nil {
+					b.SendMessage(ctx, &bot.SendMessageParams{
+						ChatID: msg.Chat.ID,
+						Text:   "⚠️ Ошибка: " + err.Error(),
+					})
+					return
+				}
+
 				b.SendMessage(ctx, &bot.SendMessageParams{
 					ChatID: msg.Chat.ID,
-					Text:   "⚠️ Ошибка: " + err.Error(),
+					Text:   reply,
 				})
-				return
+			} else {
+				b.SendMessage(ctx, &bot.SendMessageParams{
+					ChatID: msg.Chat.ID,
+					Text:   "Forbidden access",
+				})
 			}
-
-			b.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID: msg.Chat.ID,
-				Text:   reply,
-			})
 		}),
 	}
 

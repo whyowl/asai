@@ -23,7 +23,7 @@ type Tool interface {
 
 func NewAgent() *Agent {
 	return &Agent{
-		llm: llm.NewGigaChatClient(os.Getenv("ASAI_LLM_URI_BASE"), os.Getenv("ASAI_LLM_MODEL")), // универсальный
+		llm: llm.NewLlamaClient(os.Getenv("ASAI_LLM_URI_BASE"), os.Getenv("ASAI_LLM_MODEL")),
 		tools: map[string]Tool{
 			"bitwarden": tools.NewBitwardenTool(),
 			"savedata":  tools.NewDataMgr(),
@@ -37,32 +37,20 @@ func (a *Agent) HandleInput(userID int64, input string) (string, error) {
 	ctx := a.memory.LoadContext(userID)
 	systemPrompt := buildSystemPrompt(a.tools, time.Now(), "Telegram")
 	messages := ctx.WithNewUserInput(systemPrompt, input)
-	// Если ключевое слово — bitwarden, вызываем инструмент напрямую
-	//if strings.Contains(strings.ToLower(input), "bitwarden") {
-	//	return a.tools["bitwarden"].Execute(input)
-	//}
 
-	// Иначе отправляем в LLaMA
 	response, err := a.llm.Generate(messages)
 	if err != nil {
 		fmt.Println(err)
 		return "", err
 	}
-	ctx.Messages = append(ctx.Messages, llm.Message{
-		Role:    "assistant",
-		Content: response,
-	})
+	ctx.Messages = append(ctx.Messages, response)
 	a.memory.SaveContext(userID, ctx)
-	fmt.Println(response)
-	return response, nil
+	return response.Content, nil
 }
 
 func buildSystemPrompt(tools map[string]Tool, data time.Time, mode string) string {
 	const SYSTEM_PROMPT = `
 Ты — Asai, персональный ИИ-агент. Ты работаешь напрямую на одного пользователя и строго соблюдаешь приватность.
-Доступные инструменты:
-
-{{TOOLS}}
 
 Всегда выбирай, когда уместно вызвать инструмент, а когда ответить сам. Если не уверен — уточни.
 Никогда не выдумывай данные. Не сохраняй ничего без указания пользователя.
@@ -71,16 +59,8 @@ func buildSystemPrompt(tools map[string]Tool, data time.Time, mode string) strin
 Текущий режим работы: {{MODE}}
 Дата и время: {{TIME}}
 `
-	tpl := strings.ReplaceAll(SYSTEM_PROMPT, "{{TOOLS}}", toolsToString(tools))
-	tpl = strings.ReplaceAll(tpl, "{{TIME}}", data.String())
+	tpl := strings.ReplaceAll(SYSTEM_PROMPT, "{{TIME}}", data.String())
 	tpl = strings.ReplaceAll(tpl, "{{MODE}}", mode)
 	return tpl
 }
 
-func toolsToString(tools map[string]Tool) string {
-	var strTools string
-	for i, _ := range tools {
-		strTools += i + "\n"
-	}
-	return strTools
-}
