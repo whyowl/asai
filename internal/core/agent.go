@@ -23,7 +23,7 @@ type Tool interface {
 
 func NewAgent() *Agent {
 	return &Agent{
-		llm: llm.NewLlamaClient(os.Getenv("ASAI_LLM_URI_BASE"), os.Getenv("ASAI_LLM_MODEL")), // универсальный
+		llm: llm.NewGigaChatClient(os.Getenv("ASAI_LLM_URI_BASE"), os.Getenv("ASAI_LLM_MODEL")), // универсальный
 		tools: map[string]Tool{
 			"bitwarden": tools.NewBitwardenTool(),
 			"savedata":  tools.NewDataMgr(),
