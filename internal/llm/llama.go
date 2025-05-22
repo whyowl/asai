@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
+	"regexp"
 	"strings"
 )
 
@@ -52,7 +52,7 @@ func NewLlamaClient(uri string, model string) *LlamaClient {
 		uri = "http://localhost:11434"
 	}
 	if model == "" {
-		model = "llama3.1:8b"
+		model = "qwen3:14b"
 	}
 
 	return &LlamaClient{
@@ -61,7 +61,7 @@ func NewLlamaClient(uri string, model string) *LlamaClient {
 	}
 }
 
-func (c *LlamaClient) Generate(messages []Message, tools []tools.Tool) (Message, error) {
+func (c *LlamaClient) Generate(messages []Message, functionsTools []tools.Tool) ([]Message, error) {
 	url := fmt.Sprintf("%s/api/chat", c.ApiBase)
 	reqBody := llamaRequest{
 		ChatRequest: ChatRequest{
@@ -69,42 +69,53 @@ func (c *LlamaClient) Generate(messages []Message, tools []tools.Tool) (Message,
 			Messages: messages,
 		},
 		Stream: false,
-		Tools:  tools,
+		Tools:  functionsTools,
 	}
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return Message{}, err
+		return []Message{}, err
 	}
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
 	if err != nil {
-		return Message{}, err
+		return []Message{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return Message{}, err
+		return []Message{}, err
 	}
 	defer resp.Body.Close()
 
-	if os.Getenv("DEBUG") == "true" {
-		fmt.Printf("response from url: %s\n", resp)
-	}
-
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return Message{}, err
+		return []Message{}, err
 	}
 
 	var respObj llamaResponse
 	err = json.Unmarshal(respBytes, &respObj)
 	if err != nil {
-		return Message{}, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
+		return []Message{}, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
 	}
-
-	if os.Getenv("DEBUG") == "true" {
-		fmt.Printf("response json: %s\n", respObj)
+	if len(respObj.Message.ToolCalls) > 0 {
+		var functionsResponse string
+		for _, f := range respObj.Message.ToolCalls {
+			functionResponse, err := tools.CallFunctionsByModel(f.Function.Name, f.Function.Arguments)
+			if err != nil {
+				return []Message{}, err
+			}
+			functionsResponse += "\n\n" + functionResponse
+		}
+		generate, err := c.Generate(append(messages, Message{Role: "tool", Content: functionsResponse}), functionsTools)
+		if err != nil {
+			return []Message{}, err
+		}
+		return generate, nil
 	}
+	return []Message{Message{Content: RemoveThinkTags(respObj.Message.Content), Role: respObj.Message.Role}}, nil
+}
 
-	return Message{Content: respObj.Message.Content, Role: respObj.Message.Role}, nil
+func RemoveThinkTags(s string) string {
+	re := regexp.MustCompile(`(?s)<think>.*?</think>`)
+	return re.ReplaceAllString(s, "")
 }

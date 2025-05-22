@@ -1,6 +1,6 @@
 package tools
 
-var FunctionRegistry = map[string]Tool{}
+var functionRegistry = map[string]Tool{}
 
 type Tool struct {
 	Type     string   `json:"type"` // "function"
@@ -8,10 +8,10 @@ type Tool struct {
 }
 
 type Function struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	//Handler     func(map[string]FunctionParameter) (string, error)
-	Parameters FunctionParameterSpec `json:"parameters"`
+	Name        string                                  `json:"name"`
+	Description string                                  `json:"description"`
+	Handler     func(map[string]string) (string, error) `json:"-"`
+	Parameters  FunctionParameterSpec                   `json:"parameters"`
 }
 
 type FunctionParameterSpec struct {
@@ -27,14 +27,21 @@ type FunctionParameter struct {
 }
 
 func RegisterFunction(tool Tool) {
-	FunctionRegistry[tool.Function.Name] = tool
+	functionRegistry[tool.Function.Name] = tool
 }
 
 func GetToolsForModel() []Tool {
 	var tools []Tool
-	for _, tool := range FunctionRegistry {
+	for _, tool := range functionRegistry {
 		tools = append(tools, tool)
-
 	}
 	return tools
+}
+
+func CallFunctionsByModel(name string, arg map[string]string) (string, error) {
+	response, err := functionRegistry[name].Function.Handler(arg)
+	if err != nil {
+		return "", err
+	}
+	return response, nil
 }

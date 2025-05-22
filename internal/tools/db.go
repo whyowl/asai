@@ -1,14 +1,11 @@
 package tools
 
-import "fmt"
-
 type dataMgr struct {
 	data string
 }
 
-func (*dataMgr) Execute(data map[string]FunctionParameter) (string, error) {
-	fmt.Println(data)
-	return "data", nil
+func (*dataMgr) Execute(data map[string]string) (string, error) {
+	return "Эта заглушка, сервис погоды пока не работает. Предупредите пользователя, что временно не можешь дать данные", nil
 }
 
 func NewDataMgr() *dataMgr {
@@ -21,7 +18,7 @@ func init() {
 		Function: Function{
 			Name:        "get_current_weather",
 			Description: "Get the current weather for a location",
-			//Handler:     NewDataMgr().Execute,
+			Handler:     NewDataMgr().Execute,
 			Parameters: FunctionParameterSpec{
 				Type: "object",
 				Properties: map[string]FunctionParameter{

@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -53,6 +54,7 @@ func Run(ctx context.Context, a *core.Agent, token string) {
 					Text:   reply,
 				})
 			} else {
+				fmt.Println(msg.Chat.ID, " try chat with bot")
 				b.SendMessage(ctx, &bot.SendMessageParams{
 					ChatID: msg.Chat.ID,
 					Text:   "Forbidden access",

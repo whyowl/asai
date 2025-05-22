@@ -23,8 +23,7 @@ type Agent struct {
 
 func NewAgent() *Agent {
 	return &Agent{
-		llm: llm.NewLlamaClient(os.Getenv("ASAI_LLM_URI_BASE"), os.Getenv("ASAI_LLM_MODEL")),
-		//tools: tools.FunctionRegistry,
+		llm:    llm.NewLlamaClient(os.Getenv("ASAI_LLM_URI_BASE"), os.Getenv("ASAI_LLM_MODEL")),
 		memory: memory.NewInMemoryContextManager(),
 	}
 }
@@ -40,9 +39,9 @@ func (a *Agent) HandleInput(userID int64, input string) (string, error) {
 		fmt.Println(err)
 		return "", err
 	}
-	ctx.Messages = append(ctx.Messages, response)
+	ctx.Messages = append(ctx.Messages, response...)
 	a.memory.SaveContext(userID, ctx)
-	return response.Content, nil
+	return response[len(response)-1].Content, nil
 }
 
 func buildSystemPrompt(data time.Time, mode string) string {
@@ -52,6 +51,8 @@ func buildSystemPrompt(data time.Time, mode string) string {
 Всегда выбирай, когда уместно вызвать инструмент, а когда ответить сам. Если не уверен — уточни.
 Никогда не выдумывай данные. Не сохраняй ничего без указания пользователя.
 Ты не человек и не изображаешь его. Ты — приватный помощник.
+Не рассказывай подробно о доступных инструментах и их характеристиках, если только пользователь конкретно не попросит об этом.
+/no_think
 
 Текущий режим работы: {{MODE}}
 Дата и время: {{TIME}}
