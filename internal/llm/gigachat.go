@@ -35,8 +35,8 @@ type gigaChatClient struct {
 }
 
 type gigaChatRequest struct {
-	Model    string    `json:"model"`
-	Messages []Message `json:"messages"`
+	ChatRequest
+	Functions string `json:"functions,omitempty"`
 }
 
 type GigaChatResponse struct {
@@ -48,11 +48,11 @@ type GigaChatResponse struct {
 }
 
 type Choice struct {
-	Message          ResponseMessage `json:"message"`
-	Index            int             `json:"index"`
-	FinishReason     string          `json:"finish_reason"` // stop, length, function_call, blacklist, error
-	FunctionCall     *FunctionCall   `json:"function_call,omitempty"`
-	FunctionsStateID string          `json:"functions_state_id,omitempty"` // UUIDv4
+	Message          ResponseMessage   `json:"message"`
+	Index            int               `json:"index"`
+	FinishReason     string            `json:"finish_reason"` // stop, length, function_call, blacklist, error
+	FunctionCall     *GigaFunctionCall `json:"function_call,omitempty"`
+	FunctionsStateID string            `json:"functions_state_id,omitempty"` // UUIDv4
 }
 
 type ResponseMessage struct {
@@ -62,7 +62,7 @@ type ResponseMessage struct {
 	Name    string `json:"name,omitempty"`    // Название функции
 }
 
-type FunctionCall struct {
+type GigaFunctionCall struct {
 	Name      string                 `json:"name"`
 	Arguments map[string]interface{} `json:"arguments"`
 }
@@ -101,8 +101,10 @@ func (c *gigaChatClient) Generate(messages []Message) (string, error) {
 
 	url := fmt.Sprintf("%s/api/v1/chat/completions", c.ApiBase)
 	reqBody := gigaChatRequest{
-		Model:    c.Model,
-		Messages: messages,
+		ChatRequest: ChatRequest{
+			Model:    c.Model,
+			Messages: messages,
+		},
 	}
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {

@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"asai/internal/tools"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -16,17 +17,33 @@ type LlamaClient struct {
 }
 
 type llamaRequest struct {
-	Model    string    `json:"model"`
-	Messages []Message `json:"messages"`
-	Stream   bool      `json:"stream"`
+	ChatRequest
+	Stream bool         `json:"stream"`
+	Tools  []tools.Tool `json:"tools,omitempty"` //   data type
+}
+
+type ToolCalls struct {
+	Function FunctionCall `json:"function"`
+}
+
+type FunctionCall struct {
+	Name      string            `json:"name"`
+	Arguments map[string]string `json:"arguments"`
+}
+
+type llamaMessageResult struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+	//ToolCalls json.RawMessage `json:"tool_calls,omitempty"`
+	ToolCalls []ToolCalls `json:"tool_calls,omitempty"`
 }
 
 type llamaResponse struct {
-	Model      string  `json:"model"`
-	CreatedAt  string  `json:"created_at"` //уточнить тип данных
-	Message    Message `json:"message"`
-	DoneReason string  `json:"done_reason"`
-	Done       bool    `json:"done"`
+	Model      string             `json:"model"`
+	CreatedAt  string             `json:"created_at"` //уточнить тип данных
+	Message    llamaMessageResult `json:"message"`
+	DoneReason string             `json:"done_reason"`
+	Done       bool               `json:"done"`
 }
 
 func NewLlamaClient(uri string, model string) *LlamaClient {
@@ -44,12 +61,15 @@ func NewLlamaClient(uri string, model string) *LlamaClient {
 	}
 }
 
-func (c *LlamaClient) Generate(messages []Message) (Message, error) {
+func (c *LlamaClient) Generate(messages []Message, tools []tools.Tool) (Message, error) {
 	url := fmt.Sprintf("%s/api/chat", c.ApiBase)
 	reqBody := llamaRequest{
-		Model:    c.Model,
-		Messages: messages,
-		Stream:   false,
+		ChatRequest: ChatRequest{
+			Model:    c.Model,
+			Messages: messages,
+		},
+		Stream: false,
+		Tools:  tools,
 	}
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
@@ -86,5 +106,5 @@ func (c *LlamaClient) Generate(messages []Message) (Message, error) {
 		fmt.Printf("response json: %s\n", respObj)
 	}
 
-	return respObj.Message, nil
+	return Message{Content: respObj.Message.Content, Role: respObj.Message.Role}, nil
 }

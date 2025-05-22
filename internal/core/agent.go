@@ -12,22 +12,19 @@ import (
 )
 
 type Agent struct {
-	llm    llm.LLM
-	tools  map[string]Tool
+	llm llm.LLM
+	//tools  map[string]tools.Tool
 	memory *memory.InMemoryContextManager
 }
 
-type Tool interface {
-	Execute(input string) (string, error)
-}
+//type Tool interface {
+//	Execute(input string) (string, error)
+//}
 
 func NewAgent() *Agent {
 	return &Agent{
 		llm: llm.NewLlamaClient(os.Getenv("ASAI_LLM_URI_BASE"), os.Getenv("ASAI_LLM_MODEL")),
-		tools: map[string]Tool{
-			"bitwarden": tools.NewBitwardenTool(),
-			"savedata":  tools.NewDataMgr(),
-		},
+		//tools: tools.FunctionRegistry,
 		memory: memory.NewInMemoryContextManager(),
 	}
 }
@@ -35,10 +32,10 @@ func NewAgent() *Agent {
 func (a *Agent) HandleInput(userID int64, input string) (string, error) {
 
 	ctx := a.memory.LoadContext(userID)
-	systemPrompt := buildSystemPrompt(a.tools, time.Now(), "Telegram")
+	systemPrompt := buildSystemPrompt(time.Now(), "Telegram")
 	messages := ctx.WithNewUserInput(systemPrompt, input)
 
-	response, err := a.llm.Generate(messages)
+	response, err := a.llm.Generate(messages, tools.GetToolsForModel())
 	if err != nil {
 		fmt.Println(err)
 		return "", err
@@ -48,7 +45,7 @@ func (a *Agent) HandleInput(userID int64, input string) (string, error) {
 	return response.Content, nil
 }
 
-func buildSystemPrompt(tools map[string]Tool, data time.Time, mode string) string {
+func buildSystemPrompt(data time.Time, mode string) string {
 	const SYSTEM_PROMPT = `
 Ты — Asai, персональный ИИ-агент. Ты работаешь напрямую на одного пользователя и строго соблюдаешь приватность.
 
@@ -63,4 +60,3 @@ func buildSystemPrompt(tools map[string]Tool, data time.Time, mode string) strin
 	tpl = strings.ReplaceAll(tpl, "{{MODE}}", mode)
 	return tpl
 }
-
