@@ -28,7 +28,7 @@ type LLMConfig struct {
 
 type PostgresConfig struct {
 	Host string
-	Port int
+	Port string
 	User string
 	Pass string
 	DB   string
@@ -61,7 +61,6 @@ func Load() {
 		log.Fatal("Error loading .env file")
 	}
 
-	port, _ := strconv.Atoi(getEnv("PG_PORT", "5432"))
 	contextLimit, _ := strconv.Atoi(getEnv("LLM_CONTEXT_LIMIT", "12"))
 	useTelegram, _ := strconv.ParseBool(getEnv("TELEGRAM_USE", "false"))
 
@@ -72,7 +71,7 @@ func Load() {
 		},
 		Postgres: PostgresConfig{
 			Host: getEnv("PG_HOST", "localhost"),
-			Port: port,
+			Port: getEnv("PG_PORT", "5432"),
 			User: getEnv("PG_USER", "postgres"),
 			Pass: getEnv("PG_PASS", "password"),
 			DB:   getEnv("PG_DB", "asai_db"),

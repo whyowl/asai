@@ -1,10 +1,9 @@
 package memory
 
 import (
+	"asai/internal/config"
 	"context"
 	"fmt"
-	"os"
-
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -12,11 +11,11 @@ var DB *pgxpool.Pool
 
 func Init() error {
 	url := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
-		getEnv("PG_USER", "asai_user"),
-		getEnv("PG_PASS", "secretpassword"),
-		getEnv("PG_HOST", "localhost"),
-		getEnv("PG_PORT", "5432"),
-		getEnv("PG_DB", "asai_db"),
+		config.AppConfig.Postgres.User,
+		config.AppConfig.Postgres.Pass,
+		config.AppConfig.Postgres.Host,
+		config.AppConfig.Postgres.Port,
+		config.AppConfig.Postgres.DB,
 	)
 
 	var err error
@@ -26,11 +25,4 @@ func Init() error {
 	}
 
 	return nil
-}
-
-func getEnv(key, fallback string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-	return fallback
 }
