@@ -1,10 +1,10 @@
 package telegram
 
 import (
+	"asai/internal/config"
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"strconv"
 	"time"
 
@@ -39,12 +39,12 @@ func Run(ctx context.Context, a *core.Agent, token string) {
 			}(chn)
 
 			msg := update.Message
-			if idOwner := os.Getenv("TELEGRAM_ID_OWNER"); idOwner == "" || idOwner == strconv.FormatInt(msg.Chat.ID, 10) {
+			if config.AppConfig.Telegram.WhiteList[strconv.FormatInt(msg.Chat.ID, 10)] {
 				reply, err := a.HandleInput(msg.Chat.ID, msg.Text)
 				if err != nil {
 					b.SendMessage(ctx, &bot.SendMessageParams{
 						ChatID: msg.Chat.ID,
-						Text:   "⚠️ Ошибка: " + err.Error(),
+						Text:   "⚠️ Error: " + err.Error(),
 					})
 					return
 				}
@@ -68,6 +68,6 @@ func Run(ctx context.Context, a *core.Agent, token string) {
 		log.Fatal(err)
 	}
 
-	log.Println("[telegram] бот запущен...")
+	log.Println("[telegram] bot started...")
 	b.Start(ctx)
 }

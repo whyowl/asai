@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"asai/internal/config"
 	"asai/internal/tools"
 	"bytes"
 	"encoding/json"
@@ -32,9 +33,8 @@ type FunctionCall struct {
 }
 
 type llamaMessageResult struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-	//ToolCalls json.RawMessage `json:"tool_calls,omitempty"`
+	Role      string      `json:"role"`
+	Content   string      `json:"content"`
 	ToolCalls []ToolCalls `json:"tool_calls,omitempty"`
 }
 
@@ -46,18 +46,10 @@ type llamaResponse struct {
 	Done       bool               `json:"done"`
 }
 
-func NewLlamaClient(uri string, model string) *LlamaClient {
-
-	if uri == "" {
-		uri = "http://localhost:11434"
-	}
-	if model == "" {
-		model = "qwen3:14b"
-	}
-
+func NewLlamaClient() *LlamaClient {
 	return &LlamaClient{
-		ApiBase: strings.TrimRight(uri, "/"),
-		Model:   model,
+		ApiBase: strings.TrimRight(config.AppConfig.LLM.Ollama.Url, "/"),
+		Model:   config.AppConfig.LLM.Ollama.Model,
 	}
 }
 
@@ -97,15 +89,16 @@ func (c *LlamaClient) Generate(messages []Message, functionsTools []tools.Tool) 
 	if err != nil {
 		return []Message{}, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
 	}
-	if len(respObj.Message.ToolCalls) > 0 {
-		var functionsResponse string
-		for _, f := range respObj.Message.ToolCalls {
-			functionResponse, err := tools.CallFunctionsByModel(f.Function.Name, f.Function.Arguments)
-			if err != nil {
-				return []Message{}, err
-			}
-			functionsResponse += "\n\n" + functionResponse
+
+	var functionsResponse string
+	for _, f := range respObj.Message.ToolCalls {
+		functionResponse, err := tools.CallFunctionsByModel(f.Function.Name, f.Function.Arguments)
+		if err != nil {
+			return []Message{}, err //кривой код
 		}
+		functionsResponse += "\n\n" + functionResponse
+	}
+	if functionsResponse != "" {
 		generate, err := c.Generate(append(messages, Message{Role: "tool", Content: functionsResponse}), functionsTools)
 		if err != nil {
 			return []Message{}, err

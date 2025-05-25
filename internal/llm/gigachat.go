@@ -1,6 +1,8 @@
 package llm
 
 import (
+	"asai/internal/config"
+	"asai/internal/tools"
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
@@ -13,14 +15,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
-)
-
-const (
-	tokenURL = "https://ngw.devices.sberbank.ru:9443/api/v2/oauth"
-	scope    = "GIGACHAT_API_PERS"
 )
 
 type gigaChatAccessToken struct {
@@ -74,28 +70,20 @@ type UsageStats struct {
 	TotalTokens           int `json:"total_tokens"`
 }
 
-func NewGigaChatClient(uri string, model string) *gigaChatClient {
-
-	if uri == "" {
-		uri = "https://gigachat.devices.sberbank.ru/"
-	}
-	if model == "" {
-		model = "GigaChat"
-	}
-
+func NewGigaChatClient() *gigaChatClient {
 	return &gigaChatClient{
-		ApiBase:     strings.TrimRight(uri, "/"),
-		Model:       model,
+		ApiBase:     strings.TrimRight(config.AppConfig.LLM.GigaChat.ClientUrl, "/"),
+		Model:       config.AppConfig.LLM.GigaChat.Model,
 		accessToken: gigaChatAccessToken{Token: "", ExpiresAt: 0},
 	}
 }
 
-func (c *gigaChatClient) Generate(messages []Message) (string, error) {
+func (c *gigaChatClient) Generate(messages []Message, tools []tools.Tool) ([]Message, error) {
 
 	if c.accessToken.ExpiresAt <= time.Now().Unix() {
-		err := c.accessRequest(os.Getenv("GIGACHAT_CLIENT_SECRET"))
+		err := c.accessRequest(config.AppConfig.LLM.GigaChat.Secret)
 		if err != nil {
-			return "", fmt.Errorf("error request access: %s", err)
+			return []Message{}, fmt.Errorf("error request access: %s", err)
 		}
 	}
 
@@ -108,45 +96,45 @@ func (c *gigaChatClient) Generate(messages []Message) (string, error) {
 	}
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", err
+		return []Message{}, err
 	}
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
 	if err != nil {
-		return "", err
+		return []Message{}, err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.accessToken.Token)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := newHTTPClientWithCert(os.Getenv("GIGACHAT_CLIENT_CERT"))
+	client := newHTTPClientWithCert(config.AppConfig.LLM.GigaChat.Certificate)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return []Message{}, err
 	}
 	defer resp.Body.Close()
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return []Message{}, err
 	}
 	var respObj GigaChatResponse
 	err = json.Unmarshal(respBytes, &respObj)
 	if err != nil {
-		return "", fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
+		return []Message{}, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
 	}
 	if len(respObj.Choices) == 0 {
-		return "", fmt.Errorf("error empty response: %v, body: %s", err, string(respBytes))
+		return []Message{}, fmt.Errorf("error empty response: %v, body: %s", err, string(respBytes))
 	}
-	return respObj.Choices[0].Message.Content, nil
+	return []Message{{Role: respObj.Choices[0].Message.Role, Content: respObj.Choices[0].Message.Content}}, nil
 }
 
 func (c *gigaChatClient) accessRequest(clientSecret string) error {
 
 	rqUID := uuid.New().String()
 	form := url.Values{}
-	form.Set("scope", scope)
+	form.Set("scope", config.AppConfig.LLM.GigaChat.Scope)
 
-	req, err := http.NewRequest("POST", tokenURL, strings.NewReader(form.Encode()))
+	req, err := http.NewRequest("POST", config.AppConfig.LLM.GigaChat.TokenUrl, strings.NewReader(form.Encode()))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -156,7 +144,7 @@ func (c *gigaChatClient) accessRequest(clientSecret string) error {
 	req.Header.Set("Authorization", "Basic "+clientSecret)
 	req.Header.Set("RqUID", rqUID)
 
-	client := newHTTPClientWithCert(os.Getenv("GIGACHAT_CLIENT_CERT"))
+	client := newHTTPClientWithCert(config.AppConfig.LLM.GigaChat.Certificate)
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)

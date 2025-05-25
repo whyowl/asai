@@ -1,9 +1,9 @@
 package core
 
 import (
+	"asai/internal/config"
 	"asai/internal/memory"
-	"fmt"
-	"os"
+	"log"
 	"strings"
 	"time"
 
@@ -12,31 +12,33 @@ import (
 )
 
 type Agent struct {
-	llm llm.LLM
-	//tools  map[string]tools.Tool
-	memory *memory.InMemoryContextManager
+	llm          llm.LLM
+	memory       *memory.InMemoryContextManager
+	systemPrompt string
 }
 
-//type Tool interface {
-//	Execute(input string) (string, error)
-//}
-
-func NewAgent() *Agent {
+func NewAgent(prompt string) *Agent {
+	log.Printf("Created new Agent on %s provider (%s) with %d symbols context limit\n",
+		config.AppConfig.General.LLMProvider,
+		llm.Providers[config.AppConfig.General.LLMProvider],
+		config.AppConfig.LLM.ContextLimit)
 	return &Agent{
-		llm:    llm.NewLlamaClient(os.Getenv("ASAI_LLM_URI_BASE"), os.Getenv("ASAI_LLM_MODEL")),
-		memory: memory.NewInMemoryContextManager(),
+		llm:          llm.Providers[config.AppConfig.General.LLMProvider],
+		memory:       memory.NewInMemoryContextManager(config.AppConfig.LLM.ContextLimit),
+		systemPrompt: prompt,
 	}
+
 }
 
 func (a *Agent) HandleInput(userID int64, input string) (string, error) {
 
 	ctx := a.memory.LoadContext(userID)
-	systemPrompt := buildSystemPrompt(time.Now(), "Telegram")
+	systemPrompt := buildSystemPrompt(a.systemPrompt, time.Now(), "Telegram", "")
 	messages := ctx.WithNewUserInput(systemPrompt, input)
 
 	response, err := a.llm.Generate(messages, tools.GetToolsForModel())
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return "", err
 	}
 	ctx.Messages = append(ctx.Messages, response...)
@@ -44,20 +46,9 @@ func (a *Agent) HandleInput(userID int64, input string) (string, error) {
 	return response[len(response)-1].Content, nil
 }
 
-func buildSystemPrompt(data time.Time, mode string) string {
-	const SYSTEM_PROMPT = `
-Ты — Asai, персональный ИИ-агент. Ты работаешь напрямую на одного пользователя и строго соблюдаешь приватность.
-
-Всегда выбирай, когда уместно вызвать инструмент, а когда ответить сам. Если не уверен — уточни.
-Никогда не выдумывай данные. Не сохраняй ничего без указания пользователя.
-Ты не человек и не изображаешь его. Ты — приватный помощник.
-Не рассказывай подробно о доступных инструментах и их характеристиках, если только пользователь конкретно не попросит об этом.
-/no_think
-
-Текущий режим работы: {{MODE}}
-Дата и время: {{TIME}}
-`
-	tpl := strings.ReplaceAll(SYSTEM_PROMPT, "{{TIME}}", data.String())
+func buildSystemPrompt(prompt string, data time.Time, mode string, userInfo string) string {
+	tpl := strings.ReplaceAll(prompt, "{{TIME}}", data.String())
 	tpl = strings.ReplaceAll(tpl, "{{MODE}}", mode)
+	tpl = strings.ReplaceAll(tpl, "{{USER_INFO}}", userInfo)
 	return tpl
 }
