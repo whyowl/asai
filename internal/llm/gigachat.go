@@ -19,57 +19,6 @@ import (
 	"time"
 )
 
-type gigaChatAccessToken struct {
-	Token     string `json:"access_token"`
-	ExpiresAt int64  `json:"expires_at"`
-}
-
-type gigaChatClient struct {
-	ApiBase     string
-	Model       string
-	accessToken gigaChatAccessToken
-}
-
-type gigaChatRequest struct {
-	ChatRequest
-	Functions string `json:"functions,omitempty"`
-}
-
-type GigaChatResponse struct {
-	Choices []Choice   `json:"choices"`
-	Created int64      `json:"created"`
-	Model   string     `json:"model"`
-	Usage   UsageStats `json:"usage"`
-	Object  string     `json:"object"`
-}
-
-type Choice struct {
-	Message          ResponseMessage   `json:"message"`
-	Index            int               `json:"index"`
-	FinishReason     string            `json:"finish_reason"` // stop, length, function_call, blacklist, error
-	FunctionCall     *GigaFunctionCall `json:"function_call,omitempty"`
-	FunctionsStateID string            `json:"functions_state_id,omitempty"` // UUIDv4
-}
-
-type ResponseMessage struct {
-	Role    string `json:"role"`              // assistant, function_in_progress
-	Content string `json:"content"`           // Текст или статус выполнения
-	Created *int64 `json:"created,omitempty"` // Только для function_in_progress
-	Name    string `json:"name,omitempty"`    // Название функции
-}
-
-type GigaFunctionCall struct {
-	Name      string                 `json:"name"`
-	Arguments map[string]interface{} `json:"arguments"`
-}
-
-type UsageStats struct {
-	PromptTokens          int `json:"prompt_tokens"`
-	CompletionTokens      int `json:"completion_tokens"`
-	PrecachedPromptTokens int `json:"precached_prompt_tokens"`
-	TotalTokens           int `json:"total_tokens"`
-}
-
 func NewGigaChatClient() *gigaChatClient {
 	return &gigaChatClient{
 		ApiBase:     strings.TrimRight(config.AppConfig.LLM.GigaChat.ClientUrl, "/"),
@@ -126,6 +75,54 @@ func (c *gigaChatClient) Generate(messages []Message, tools []tools.Tool) ([]Mes
 		return []Message{}, fmt.Errorf("error empty response: %v, body: %s", err, string(respBytes))
 	}
 	return []Message{{Role: respObj.Choices[0].Message.Role, Content: respObj.Choices[0].Message.Content}}, nil
+}
+
+func (c *gigaChatClient) Embed(input string) ([]float32, error) {
+
+	if c.accessToken.ExpiresAt <= time.Now().Unix() {
+		err := c.accessRequest(config.AppConfig.LLM.GigaChat.Secret)
+		if err != nil {
+			return []float32{}, fmt.Errorf("error request access: %s", err)
+		}
+	}
+
+	url := fmt.Sprintf("%s/api/v1/embeddings", c.ApiBase)
+	reqBody := gigaChatEmbedRequest{
+		Model: c.EmbedModel,
+		Input: input,
+	}
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return []float32{}, err
+	}
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return []float32{}, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.accessToken.Token)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := newHTTPClientWithCert(config.AppConfig.LLM.GigaChat.Certificate)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return []float32{}, err
+	}
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return []float32{}, err
+	}
+	var respObj gigaChatEmbedResponse
+	err = json.Unmarshal(respBytes, &respObj)
+	if err != nil {
+		return []float32{}, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
+	}
+	if len(respObj.Data) == 0 {
+		return []float32{}, fmt.Errorf("error empty response: %v, body: %s", err, string(respBytes))
+	}
+	return respObj.Data[0].Embedding, nil
 }
 
 func (c *gigaChatClient) accessRequest(clientSecret string) error {

@@ -35,8 +35,10 @@ type PostgresConfig struct {
 }
 
 type OllamaConfig struct {
-	Model string
-	Url   string
+	Model          string
+	EmbedModel     string
+	EmbedDimension string
+	Url            string
 }
 
 type GigaChatConfig struct {
@@ -78,8 +80,10 @@ func Load() {
 		},
 		LLM: LLMConfig{
 			Ollama: OllamaConfig{
-				Model: getEnv("OLLAMA_MODEL", "llama3.1:8b"),
-				Url:   getEnv("OLLAMA_URI_BASE", "http://localhost:11434"),
+				Model:          getEnv("OLLAMA_MODEL", "llama3.1:8b"),
+				EmbedModel:     getEnv("OLLAMA_EMBED_MODEL", "nomic-embed-text:v1.5"),
+				EmbedDimension: getEnv("OLLAMA_EMBED_DIM", "768"),
+				Url:            getEnv("OLLAMA_URI_BASE", "http://localhost:11434"),
 			},
 			GigaChat: GigaChatConfig{
 				Secret:      getEnv("GIGACHAT_CLIENT_SECRET", ""),

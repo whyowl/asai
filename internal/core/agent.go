@@ -46,6 +46,14 @@ func (a *Agent) HandleInput(userID int64, input string) (string, error) {
 	return response[len(response)-1].Content, nil
 }
 
+func (a *Agent) GetDimensions() (int, error) {
+	vector, err := a.llm.Embed("test")
+	if err != nil {
+		return 0, err
+	}
+	return len(vector), nil
+}
+
 func buildSystemPrompt(prompt string, data time.Time, mode string, userInfo string) string {
 	tpl := strings.ReplaceAll(prompt, "{{TIME}}", data.String())
 	tpl = strings.ReplaceAll(tpl, "{{MODE}}", mode)

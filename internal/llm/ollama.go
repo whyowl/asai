@@ -12,50 +12,17 @@ import (
 	"strings"
 )
 
-type LlamaClient struct {
-	ApiBase string
-	Model   string
-}
-
-type llamaRequest struct {
-	ChatRequest
-	Stream bool         `json:"stream"`
-	Tools  []tools.Tool `json:"tools,omitempty"` //   data type
-}
-
-type ToolCalls struct {
-	Function FunctionCall `json:"function"`
-}
-
-type FunctionCall struct {
-	Name      string            `json:"name"`
-	Arguments map[string]string `json:"arguments"`
-}
-
-type llamaMessageResult struct {
-	Role      string      `json:"role"`
-	Content   string      `json:"content"`
-	ToolCalls []ToolCalls `json:"tool_calls,omitempty"`
-}
-
-type llamaResponse struct {
-	Model      string             `json:"model"`
-	CreatedAt  string             `json:"created_at"` //уточнить тип данных
-	Message    llamaMessageResult `json:"message"`
-	DoneReason string             `json:"done_reason"`
-	Done       bool               `json:"done"`
-}
-
-func NewLlamaClient() *LlamaClient {
-	return &LlamaClient{
-		ApiBase: strings.TrimRight(config.AppConfig.LLM.Ollama.Url, "/"),
-		Model:   config.AppConfig.LLM.Ollama.Model,
+func NewOllamaClient() *OllamaClient {
+	return &OllamaClient{
+		ApiBase:    strings.TrimRight(config.AppConfig.LLM.Ollama.Url, "/"),
+		Model:      config.AppConfig.LLM.Ollama.Model,
+		EmbedModel: config.AppConfig.LLM.Ollama.EmbedModel,
 	}
 }
 
-func (c *LlamaClient) Generate(messages []Message, functionsTools []tools.Tool) ([]Message, error) {
+func (c *OllamaClient) Generate(messages []Message, functionsTools []tools.Tool) ([]Message, error) {
 	url := fmt.Sprintf("%s/api/chat", c.ApiBase)
-	reqBody := llamaRequest{
+	reqBody := ollamaRequest{
 		ChatRequest: ChatRequest{
 			Model:    c.Model,
 			Messages: messages,
@@ -84,7 +51,7 @@ func (c *LlamaClient) Generate(messages []Message, functionsTools []tools.Tool) 
 		return []Message{}, err
 	}
 
-	var respObj llamaResponse
+	var respObj ollamaResponse
 	err = json.Unmarshal(respBytes, &respObj)
 	if err != nil {
 		return []Message{}, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
@@ -106,6 +73,39 @@ func (c *LlamaClient) Generate(messages []Message, functionsTools []tools.Tool) 
 		return generate, nil
 	}
 	return []Message{Message{Content: RemoveThinkTags(respObj.Message.Content), Role: respObj.Message.Role}}, nil
+}
+
+func (c *OllamaClient) Embed(input string) ([]float32, error) {
+	url := fmt.Sprintf("%s/api/embed", c.ApiBase)
+	reqBody := ollamaEmbedRequest{Model: c.EmbedModel, Input: input}
+
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return []float32{}, err
+	}
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return []float32{}, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return []float32{}, err
+	}
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return []float32{}, err
+	}
+
+	var respObj ollamaEmbedResponse
+	err = json.Unmarshal(respBytes, &respObj)
+	if err != nil {
+		return []float32{}, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
+	}
+	return respObj.Embeddings[0], nil // need check error from server
 }
 
 func RemoveThinkTags(s string) string {

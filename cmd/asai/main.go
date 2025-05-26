@@ -29,11 +29,19 @@ const systemPrompt = `
 `
 
 func main() {
+	ctx := context.Background()
 	config.Load()
 	llm.Providers["gigachat"] = llm.NewGigaChatClient()
-	llm.Providers["ollama"] = llm.NewLlamaClient()
+	llm.Providers["ollama"] = llm.NewOllamaClient()
 
-	err := memory.Init()
+	agent := core.NewAgent(systemPrompt)
+
+	var dimension, err = agent.GetDimensions()
+	if err != nil {
+		log.Fatalf("Couldn't get embed: %v", err)
+	}
+
+	err = memory.Init(ctx, dimension)
 	if err != nil {
 		log.Fatalf("Database init failed: %v", err)
 	}
@@ -42,9 +50,6 @@ func main() {
 	mode := flag.String("mode", "telegram", "Interface mode: cli | http | telegram")
 	flag.Parse()
 
-	ctx := context.Background()
-
-	agent := core.NewAgent(systemPrompt)
 	switch *mode {
 	case "cli":
 		cli.Run(ctx, agent)
