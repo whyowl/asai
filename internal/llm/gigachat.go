@@ -23,6 +23,7 @@ func NewGigaChatClient() *gigaChatClient {
 	return &gigaChatClient{
 		ApiBase:     strings.TrimRight(config.AppConfig.LLM.GigaChat.ClientUrl, "/"),
 		Model:       config.AppConfig.LLM.GigaChat.Model,
+		EmbedModel:  config.AppConfig.LLM.GigaChat.EmbedModel,
 		accessToken: gigaChatAccessToken{Token: "", ExpiresAt: 0},
 	}
 }

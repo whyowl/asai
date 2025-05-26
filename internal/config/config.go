@@ -35,16 +35,16 @@ type PostgresConfig struct {
 }
 
 type OllamaConfig struct {
-	Model          string
-	EmbedModel     string
-	EmbedDimension string
-	Url            string
+	Model      string
+	EmbedModel string
+	Url        string
 }
 
 type GigaChatConfig struct {
 	Secret      string
 	Certificate string
 	Model       string
+	EmbedModel  string
 	Scope       string
 	ClientUrl   string
 	TokenUrl    string
@@ -80,15 +80,15 @@ func Load() {
 		},
 		LLM: LLMConfig{
 			Ollama: OllamaConfig{
-				Model:          getEnv("OLLAMA_MODEL", "llama3.1:8b"),
-				EmbedModel:     getEnv("OLLAMA_EMBED_MODEL", "nomic-embed-text:v1.5"),
-				EmbedDimension: getEnv("OLLAMA_EMBED_DIM", "768"),
-				Url:            getEnv("OLLAMA_URI_BASE", "http://localhost:11434"),
+				Model:      getEnv("OLLAMA_MODEL", "llama3.1:8b"),
+				EmbedModel: getEnv("OLLAMA_EMBED_MODEL", "nomic-embed-text:v1.5"),
+				Url:        getEnv("OLLAMA_URI_BASE", "http://localhost:11434"),
 			},
 			GigaChat: GigaChatConfig{
 				Secret:      getEnv("GIGACHAT_CLIENT_SECRET", ""),
 				Certificate: getEnv("GIGACHAT_CLIENT_CERT", "russian_trusted_root_ca.cer"),
 				Model:       getEnv("GIGACHAT_MODEL", "GigaChat"),
+				EmbedModel:  getEnv("GIGACHAT_EMBED_MODEL", "Embeddings"),
 				Scope:       getEnv("GIGACHAT_SCOPE", "GIGACHAT_API_PERS"),
 				ClientUrl:   getEnv("GIGACHAT_CLIENT_URL", "https://gigachat.devices.sberbank.ru/"),
 				TokenUrl:    getEnv("GIGACHAT_TOKEN_URL", "https://ngw.devices.sberbank.ru:9443/api/v2/oauth"),
