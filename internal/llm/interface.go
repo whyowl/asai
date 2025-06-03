@@ -15,6 +15,6 @@ type ChatRequest struct {
 }
 
 type LLM interface {
-	Generate(prompt []Message, tools []tools.Tool) ([]Message, error)
+	Generate(prompt []Message, tools []tools.Function, userId int64) ([]Message, error)
 	Embed(input string) ([]float32, error)
 }
