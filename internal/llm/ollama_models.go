@@ -21,16 +21,16 @@ type ollamaEmbedResponse struct {
 type ollamaRequest struct {
 	ChatRequest
 	Stream bool         `json:"stream"`
-	Tools  []tools.Tool `json:"tools,omitempty"` //   data type
+	Tools  []ollamaTool `json:"tools,omitempty"`
+}
+
+type ollamaTool struct {
+	Type     string         `json:"type"` // "function"
+	Function tools.Function `json:"function"`
 }
 
 type ToolCalls struct {
-	Function FunctionCall `json:"function"`
-}
-
-type FunctionCall struct {
-	Name      string            `json:"name"`
-	Arguments map[string]string `json:"arguments"`
+	Function tools.FunctionCall `json:"function"`
 }
 
 type ollamaMessageResult struct {

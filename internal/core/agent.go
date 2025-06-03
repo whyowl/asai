@@ -36,7 +36,7 @@ func (a *Agent) HandleInput(userID int64, input string) (string, error) {
 	systemPrompt := buildSystemPrompt(a.systemPrompt, time.Now(), "Telegram", "")
 	messages := ctx.WithNewUserInput(systemPrompt, input)
 
-	response, err := a.llm.Generate(messages, tools.GetToolsForModel())
+	response, err := a.llm.Generate(messages, tools.GetFunctionsForModel(), userID)
 	if err != nil {
 		log.Println(err)
 		return "", err

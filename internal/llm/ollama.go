@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -20,7 +21,7 @@ func NewOllamaClient() *OllamaClient {
 	}
 }
 
-func (c *OllamaClient) Generate(messages []Message, functionsTools []tools.Tool) ([]Message, error) {
+func (c *OllamaClient) Generate(messages []Message, functions []tools.Function, userID int64) ([]Message, error) {
 	url := fmt.Sprintf("%s/api/chat", c.ApiBase)
 	reqBody := ollamaRequest{
 		ChatRequest: ChatRequest{
@@ -28,7 +29,7 @@ func (c *OllamaClient) Generate(messages []Message, functionsTools []tools.Tool)
 			Messages: messages,
 		},
 		Stream: false,
-		Tools:  functionsTools,
+		Tools:  funcToTools(functions),
 	}
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
@@ -59,20 +60,28 @@ func (c *OllamaClient) Generate(messages []Message, functionsTools []tools.Tool)
 
 	var functionsResponse string
 	for _, f := range respObj.Message.ToolCalls {
-		functionResponse, err := tools.CallFunctionsByModel(f.Function.Name, f.Function.Arguments)
+		functionResult, err := tools.CallFunctionsByModel(f.Function.Name, f.Function.Arguments, userID)
 		if err != nil {
-			return []Message{}, err //кривой код
+			log.Printf("error with call tool %s: %v", f.Function.Name, err)
+			functionsResponse += fmt.Sprintf("\n\n %s: error", f.Function.Name)
+			continue
 		}
-		functionsResponse += "\n\n" + functionResponse
+		functionsResponse += fmt.Sprintf("\n\n %s: %s", f.Function.Name, functionResult)
 	}
 	if functionsResponse != "" {
-		generate, err := c.Generate(append(messages, Message{Role: "tool", Content: functionsResponse}), functionsTools)
+		generate, err := c.Generate(append(messages, Message{Role: "tool", Content: functionsResponse}), functions, userID)
 		if err != nil {
 			return []Message{}, err
 		}
 		return generate, nil
 	}
-	return []Message{Message{Content: RemoveThinkTags(respObj.Message.Content), Role: respObj.Message.Role}}, nil
+
+	response := Message{
+		Content: RemoveThinkTags(respObj.Message.Content),
+		Role:    respObj.Message.Role,
+	}
+
+	return []Message{response}, nil
 }
 
 func (c *OllamaClient) Embed(input string) ([]float32, error) {
@@ -111,4 +120,12 @@ func (c *OllamaClient) Embed(input string) ([]float32, error) {
 func RemoveThinkTags(s string) string {
 	re := regexp.MustCompile(`(?s)<think>.*?</think>`)
 	return re.ReplaceAllString(s, "")
+}
+
+func funcToTools(functions []tools.Function) []ollamaTool {
+	var ollamaTools []ollamaTool
+	for _, f := range functions {
+		ollamaTools = append(ollamaTools, ollamaTool{Type: "function", Function: f})
+	}
+	return ollamaTools
 }
