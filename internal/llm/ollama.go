@@ -73,15 +73,19 @@ func (c *OllamaClient) Generate(messages []Message, functions []tools.Function, 
 		if err != nil {
 			return []Message{}, err
 		}
-		return generate, nil
+		response := []Message{{
+			Content: RemoveThinkTags(respObj.Message.Content),
+			Role:    respObj.Message.Role,
+		}}
+		return append(response, generate...), nil
 	}
 
-	response := Message{
+	response := []Message{{
 		Content: RemoveThinkTags(respObj.Message.Content),
 		Role:    respObj.Message.Role,
-	}
+	}}
 
-	return []Message{response}, nil
+	return response, nil
 }
 
 func (c *OllamaClient) Embed(input string) ([]float32, error) {

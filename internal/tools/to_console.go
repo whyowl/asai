@@ -4,7 +4,7 @@ import "fmt"
 
 func toConsoleEnter(data map[string]string, userID int64) (string, error) {
 	fmt.Println(userID, data["text"])
-	return "Text printed to console", nil
+	return fmt.Sprintf("'%s' was printed to console", data["text"]), nil
 }
 
 func init() {
