@@ -1,3 +1,7 @@
 .idea
 .env
 *.cer
+.idea
+.gitattributes
+migrations/*
+.dev

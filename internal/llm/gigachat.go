@@ -2,6 +2,7 @@ package llm
 
 import (
 	"asai/internal/config"
+	"asai/internal/shared"
 	"asai/internal/tools"
 	"bytes"
 	"crypto/tls"
@@ -28,12 +29,12 @@ func NewGigaChatClient() *gigachatClient {
 	}
 }
 
-func (c *gigachatClient) Generate(messages []Message, functions []tools.Function, userID int64) ([]Message, error) {
+func (c *gigachatClient) Generate(messages []shared.Message, functions []tools.Function, userID int64) ([]shared.Message, error) {
 
 	if c.accessToken.ExpiresAt <= time.Now().Unix() {
 		err := c.accessRequest(config.AppConfig.LLM.GigaChat.Secret)
 		if err != nil {
-			return []Message{}, fmt.Errorf("error request access: %s", err)
+			return []shared.Message{}, fmt.Errorf("error request access: %s", err)
 		}
 	}
 
@@ -47,11 +48,11 @@ func (c *gigachatClient) Generate(messages []Message, functions []tools.Function
 	}
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return []Message{}, err
+		return []shared.Message{}, err
 	}
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
 	if err != nil {
-		return []Message{}, err
+		return []shared.Message{}, err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.accessToken.Token)
 	req.Header.Set("Content-Type", "application/json")
@@ -60,29 +61,29 @@ func (c *gigachatClient) Generate(messages []Message, functions []tools.Function
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return []Message{}, err
+		return []shared.Message{}, err
 	}
 	defer resp.Body.Close()
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return []Message{}, err
+		return []shared.Message{}, err
 	}
 	var respObj gigachatResponse
 	err = json.Unmarshal(respBytes, &respObj)
 	if err != nil {
-		return []Message{}, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
+		return []shared.Message{}, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
 	}
 	if len(respObj.Choices) == 0 {
-		return []Message{}, fmt.Errorf("error empty response: %v, body: %s", err, string(respBytes))
+		return []shared.Message{}, fmt.Errorf("error empty response: %v, body: %s", err, string(respBytes))
 	}
 
-	response := Message{
+	response := shared.Message{
 		Content: respObj.Choices[0].Message.Content,
 		Role:    respObj.Choices[0].Message.Role,
 	}
 
-	return []Message{response}, nil
+	return []shared.Message{response}, nil
 }
 
 func (c *gigachatClient) Embed(input string) ([]float32, error) {

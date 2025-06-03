@@ -2,7 +2,7 @@ package core
 
 import (
 	"asai/internal/config"
-	"asai/internal/memory"
+	"asai/internal/shared"
 	"log"
 	"strings"
 	"time"
@@ -11,9 +11,14 @@ import (
 	"asai/internal/tools"
 )
 
+type ContextManager interface {
+	LoadContext(userID int64) *shared.MessageHistory
+	SaveContext(userID int64, ctx *shared.MessageHistory)
+}
+
 type Agent struct {
 	llm          llm.LLM
-	memory       *memory.InMemoryContextManager
+	memory       ContextManager
 	systemPrompt string
 }
 
@@ -24,7 +29,7 @@ func NewAgent(prompt string) *Agent {
 		config.AppConfig.LLM.ContextLimit)
 	return &Agent{
 		llm:          llm.Providers[config.AppConfig.General.LLMProvider],
-		memory:       memory.NewInMemoryContextManager(config.AppConfig.LLM.ContextLimit),
+		memory:       shared.NewInMemoryContextManager(config.AppConfig.LLM.ContextLimit),
 		systemPrompt: prompt,
 	}
 
@@ -52,6 +57,14 @@ func (a *Agent) GetDimensions() (int, error) {
 		return 0, err
 	}
 	return len(vector), nil
+}
+
+func (a *Agent) GetEmbed(n string) ([]float32, error) {
+	embedText, err := a.llm.Embed(n)
+	if err != nil {
+		return []float32{}, err
+	}
+	return embedText, nil
 }
 
 func buildSystemPrompt(prompt string, data time.Time, mode string, userInfo string) string {

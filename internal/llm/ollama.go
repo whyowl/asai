@@ -2,6 +2,7 @@ package llm
 
 import (
 	"asai/internal/config"
+	"asai/internal/shared"
 	"asai/internal/tools"
 	"bytes"
 	"encoding/json"
@@ -21,7 +22,8 @@ func NewOllamaClient() *OllamaClient {
 	}
 }
 
-func (c *OllamaClient) Generate(messages []Message, functions []tools.Function, userID int64) ([]Message, error) {
+func (c *OllamaClient) Generate(messages []shared.Message, functions []tools.Function, userID int64) ([]shared.Message, error) {
+	//fmt.Println(messages)
 	url := fmt.Sprintf("%s/api/chat", c.ApiBase)
 	reqBody := ollamaRequest{
 		ChatRequest: ChatRequest{
@@ -33,30 +35,32 @@ func (c *OllamaClient) Generate(messages []Message, functions []tools.Function, 
 	}
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return []Message{}, err
+		return []shared.Message{}, err
 	}
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
 	if err != nil {
-		return []Message{}, err
+		return []shared.Message{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return []Message{}, err
+		return []shared.Message{}, err
 	}
 	defer resp.Body.Close()
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return []Message{}, err
+		return []shared.Message{}, err
 	}
-
+	fmt.Println(string(respBytes))
 	var respObj ollamaResponse
 	err = json.Unmarshal(respBytes, &respObj)
 	if err != nil {
-		return []Message{}, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
+		return []shared.Message{}, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
 	}
+
+	var response = []shared.Message{}
 
 	var functionsResponse string
 	for _, f := range respObj.Message.ToolCalls {
@@ -69,19 +73,21 @@ func (c *OllamaClient) Generate(messages []Message, functions []tools.Function, 
 		functionsResponse += fmt.Sprintf("\n\n %s: %s", f.Function.Name, functionResult)
 	}
 	if functionsResponse != "" {
-		generate, err := c.Generate(append(messages, Message{Role: "tool", Content: functionsResponse}), functions, userID)
+		generate, err := c.Generate(append(messages, shared.Message{Role: "tool", Content: functionsResponse}), functions, userID)
 		if err != nil {
-			return []Message{}, err
+			return []shared.Message{}, err
 		}
-		return generate, nil
+		response = append(response, shared.Message{Role: "tool", Content: functionsResponse})
+		response = append(response, generate...)
+		return response, nil
 	}
 
-	response := Message{
+	response = append(response, shared.Message{
 		Content: RemoveThinkTags(respObj.Message.Content),
 		Role:    respObj.Message.Role,
-	}
+	})
 
-	return []Message{response}, nil
+	return response, nil
 }
 
 func (c *OllamaClient) Embed(input string) ([]float32, error) {
@@ -108,12 +114,12 @@ func (c *OllamaClient) Embed(input string) ([]float32, error) {
 	if err != nil {
 		return []float32{}, err
 	}
-
 	var respObj ollamaEmbedResponse
 	err = json.Unmarshal(respBytes, &respObj)
 	if err != nil {
 		return []float32{}, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
 	}
+
 	return respObj.Embeddings[0], nil // need check error from server
 }
 
