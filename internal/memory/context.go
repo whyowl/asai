@@ -1,6 +1,8 @@
 package memory
 
-import "asai/internal/llm"
+import (
+	"asai/internal/llm"
+)
 
 type ContextManager interface {
 	LoadContext(userID int64) *MessageHistory

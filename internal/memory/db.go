@@ -33,7 +33,6 @@ func Init(ctx context.Context, dimension int) error {
 }
 
 func ensureSchema(ctx context.Context, pool *pgxpool.Pool, tableName string, vectorDim int) error {
-	// 1. Проверим, существует ли таблица
 	var exists bool
 	err := pool.QueryRow(ctx, `
 		SELECT EXISTS (
@@ -71,7 +70,6 @@ func ensureSchema(ctx context.Context, pool *pgxpool.Pool, tableName string, vec
 		return nil
 	}
 
-	// 3. Таблица не существует — создадим
 	createTableSQL := fmt.Sprintf(`
 		CREATE TABLE %s (
 			id SERIAL PRIMARY KEY,
