@@ -1,60 +1,58 @@
-# Asai — Персональный ИИ-Агент
+# Asai — Personal AI Agent
 
-Asai — это локальный или подключаемый через API ИИ-агент, координирующий доступ к инструментам вроде менеджера паролей, криптокошелька и векторной памяти. Он фокусируется на **безопасности**, **расширяемости** и **личной приватности**. Проект подразумевается как личный ассистент пользователя, а в случае потери дееспособности владельца предусматривается возможность роли управляющего сохранёнными знаниями и доступами, а также их передачи доверенному лицу.
----
+**Asai** is a local or API-connected AI agent designed to coordinate secure access to tools such as a password manager, crypto wallets, and encrypted vector memory. It prioritizes **security**, **extensibility**, and **user privacy**.
 
-## Возможности
-
--  Подключение к LLM по API (GigaChat, Local через Ollama и др.)
--  Шифруемая векторная память (в разработке)
--  Интеграция с внешними инструментами (Bitwarden, криптокошельки, и т.д.)
--  CLI-интерфейс + Telegram-бот (опционально) + REST API (в разработке)
--  Хранение контекста в PostgreSQL с поддержкой pgvector
+The project is intended as a personal assistant, with optional support for access delegation in case the user becomes incapacitated — enabling secure transfer of knowledge and permissions to a trusted party.
 
 ---
 
-## Структура проекта
+## Features
+
+* Connect to LLMs via API (supports local models via Ollama, GigaChat \[WIP], and more)
+* Encrypted vector memory (in development)
+* Integration with external tools (e.g., Bitwarden, crypto wallets)
+* CLI interface + optional Telegram bot
+* Persistent memory storage using PostgreSQL with `pgvector` support
+
+---
+
+## Project Structure
 
 ```bash
 .
-├── cmd/               # Интерфейсы и точка входа
-├── core/              # Основная логика агента
-├── llm/               # Работа с LLM API (LLaMA, GigaChat и др.)
-├── memory/            # Управление векторной памятью и контекстом
-├── tools/             # Инструменты, доступные агенту (Bitwarden и др.)
-└── config/            # Конфигурация проекта
+├── cmd/               # Entry points and interfaces
+├── core/              # Core agent logic
+├── llm/               # LLM API integrations (Ollama, GigaChat, etc.)
+├── memory/            # Vector memory and context management
+├── tools/             # External tools accessible by the agent (e.g., Bitwarden)
+└── config/            # Configuration and environment setup
 ```
 
 ---
----
 
-## Использование
+## Usage
 
-Выберите интерфейс запуска:
+Choose your preferred interface:
 
-- CLI: `go run main.go cli`
-- Telegram: `go run main.go telegram`
-- REST API (в разработке): `go run main.go api`
+* CLI: `go run main.go cli`
+* Telegram Bot: `go run main.go telegram`
 
 ---
 
-## Подключение LLM
+## Supported LLMs
 
-Поддерживаются:
-
-- Local LLaMA (через Ollama или LM Studio)
-- GigaChat 
-- OpenAI (`https://api.openai.com`) (в разработке)
+* Local models (via [Ollama](https://ollama.com) or LM Studio)
+* GigaChat *(work in progress)*
+* OpenAI (`https://api.openai.com`) *(work in progress)*
 
 ---
 
-## Планы
+## Roadmap
 
-- [ ] Передача прав и доступа
-- [ ] Поддержка смарт-контрактов
-- [ ] REST API интерфейс
-- [ ] Поддержка кастомных инструментов
-- [ ] Веб-интерфейс
-- [ ] Профили пользователей и мультиагенты
+* [ ] Role-based access and rights delegation
+* [ ] Smart contract support
+* [ ] External API calls via gRPC
+* [ ] Custom tool plugin system
+* [ ] Web-based UI
+* [ ] Multi-user profiles and agent cooperation
 
----
