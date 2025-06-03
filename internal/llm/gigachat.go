@@ -19,16 +19,16 @@ import (
 	"time"
 )
 
-func NewGigaChatClient() *gigaChatClient {
-	return &gigaChatClient{
+func NewGigaChatClient() *gigachatClient {
+	return &gigachatClient{
 		ApiBase:     strings.TrimRight(config.AppConfig.LLM.GigaChat.ClientUrl, "/"),
 		Model:       config.AppConfig.LLM.GigaChat.Model,
 		EmbedModel:  config.AppConfig.LLM.GigaChat.EmbedModel,
-		accessToken: gigaChatAccessToken{Token: "", ExpiresAt: 0},
+		accessToken: gigachatAccessToken{Token: "", ExpiresAt: 0},
 	}
 }
 
-func (c *gigaChatClient) Generate(messages []Message, tools []tools.Tool) ([]Message, error) {
+func (c *gigachatClient) Generate(messages []Message, functions []tools.Function, userID int64) ([]Message, error) {
 
 	if c.accessToken.ExpiresAt <= time.Now().Unix() {
 		err := c.accessRequest(config.AppConfig.LLM.GigaChat.Secret)
@@ -38,11 +38,12 @@ func (c *gigaChatClient) Generate(messages []Message, tools []tools.Tool) ([]Mes
 	}
 
 	url := fmt.Sprintf("%s/api/v1/chat/completions", c.ApiBase)
-	reqBody := gigaChatRequest{
+	reqBody := gigachatRequest{
 		ChatRequest: ChatRequest{
 			Model:    c.Model,
 			Messages: messages,
 		},
+		Functions: functions,
 	}
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
@@ -67,7 +68,7 @@ func (c *gigaChatClient) Generate(messages []Message, tools []tools.Tool) ([]Mes
 	if err != nil {
 		return []Message{}, err
 	}
-	var respObj GigaChatResponse
+	var respObj gigachatResponse
 	err = json.Unmarshal(respBytes, &respObj)
 	if err != nil {
 		return []Message{}, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
@@ -75,10 +76,16 @@ func (c *gigaChatClient) Generate(messages []Message, tools []tools.Tool) ([]Mes
 	if len(respObj.Choices) == 0 {
 		return []Message{}, fmt.Errorf("error empty response: %v, body: %s", err, string(respBytes))
 	}
-	return []Message{{Role: respObj.Choices[0].Message.Role, Content: respObj.Choices[0].Message.Content}}, nil
+
+	response := Message{
+		Content: respObj.Choices[0].Message.Content,
+		Role:    respObj.Choices[0].Message.Role,
+	}
+
+	return []Message{response}, nil
 }
 
-func (c *gigaChatClient) Embed(input string) ([]float32, error) {
+func (c *gigachatClient) Embed(input string) ([]float32, error) {
 
 	if c.accessToken.ExpiresAt <= time.Now().Unix() {
 		err := c.accessRequest(config.AppConfig.LLM.GigaChat.Secret)
@@ -88,7 +95,7 @@ func (c *gigaChatClient) Embed(input string) ([]float32, error) {
 	}
 
 	url := fmt.Sprintf("%s/api/v1/embeddings", c.ApiBase)
-	reqBody := gigaChatEmbedRequest{
+	reqBody := gigachatEmbedRequest{
 		Model: c.EmbedModel,
 		Input: input,
 	}
@@ -115,7 +122,7 @@ func (c *gigaChatClient) Embed(input string) ([]float32, error) {
 	if err != nil {
 		return []float32{}, err
 	}
-	var respObj gigaChatEmbedResponse
+	var respObj gigachatEmbedResponse
 	err = json.Unmarshal(respBytes, &respObj)
 	if err != nil {
 		return []float32{}, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
@@ -126,7 +133,7 @@ func (c *gigaChatClient) Embed(input string) ([]float32, error) {
 	return respObj.Data[0].Embedding, nil
 }
 
-func (c *gigaChatClient) accessRequest(clientSecret string) error {
+func (c *gigachatClient) accessRequest(clientSecret string) error {
 
 	rqUID := uuid.New().String()
 	form := url.Values{}
