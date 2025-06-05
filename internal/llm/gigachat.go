@@ -5,6 +5,7 @@ import (
 	"asai/internal/shared"
 	"asai/internal/tools"
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -29,7 +30,7 @@ func NewGigaChatClient() *gigachatClient {
 	}
 }
 
-func (c *gigachatClient) Generate(messages []shared.Message, functions []tools.Function, userID int64) ([]shared.Message, error) {
+func (c *gigachatClient) Generate(ctx context.Context, messages []shared.Message, functions []tools.Function, userID int64) ([]shared.Message, error) {
 
 	if c.accessToken.ExpiresAt <= time.Now().Unix() {
 		err := c.accessRequest(config.AppConfig.LLM.GigaChat.Secret)
@@ -86,7 +87,7 @@ func (c *gigachatClient) Generate(messages []shared.Message, functions []tools.F
 	return []shared.Message{response}, nil
 }
 
-func (c *gigachatClient) Embed(input string) ([]float32, error) {
+func (c *gigachatClient) Embed(ctx context.Context, input string) ([]float32, error) {
 
 	if c.accessToken.ExpiresAt <= time.Now().Unix() {
 		err := c.accessRequest(config.AppConfig.LLM.GigaChat.Secret)

@@ -29,14 +29,14 @@ type ollamaTool struct {
 	Function tools.Function `json:"function"`
 }
 
-type ToolCalls struct {
+type ToolCall struct {
 	Function tools.FunctionCall `json:"function"`
 }
 
 type ollamaMessageResult struct {
-	Role      string      `json:"role"`
-	Content   string      `json:"content"`
-	ToolCalls []ToolCalls `json:"tool_calls,omitempty"`
+	Role      string     `json:"role"`
+	Content   string     `json:"content"`
+	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
 }
 
 type ollamaResponse struct {
