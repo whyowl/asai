@@ -12,6 +12,10 @@ import (
 	"context"
 	"flag"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 const systemPrompt = `
@@ -30,14 +34,16 @@ const systemPrompt = `
 `
 
 func main() {
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	config.Load()
 	llm.Providers["gigachat"] = llm.NewGigaChatClient()
 	llm.Providers["ollama"] = llm.NewOllamaClient()
 
 	agent := core.NewAgent(systemPrompt)
 
-	var dimension, err = agent.GetDimensions()
+	var dimension, err = agent.GetDimensions(ctx)
 	if err != nil {
 		log.Fatalf("Couldn't get embed: %v", err)
 	}
@@ -55,12 +61,23 @@ func main() {
 
 	switch *mode {
 	case "cli":
-		cli.Run(ctx, agent)
+		go cli.Run(ctx, agent)
 	case "http":
-		http.Run(ctx, agent)
+		go http.Run(ctx, agent)
 	case "telegram":
-		telegram.Run(ctx, agent, config.AppConfig.Telegram.Token)
+		go telegram.Run(ctx, agent, config.AppConfig.Telegram.Token)
 	default:
 		log.Fatalf("Unknown mode: %s", *mode)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("Got stop signal")
+			time.Sleep(5 * time.Second)
+			log.Println("End work")
+			return
+		case <-time.After(1 * time.Second):
+		}
 	}
 }

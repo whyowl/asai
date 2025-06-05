@@ -8,18 +8,18 @@ import (
 )
 
 type embedFunction interface {
-	GetEmbed(string) ([]float32, error)
+	GetEmbed(context.Context, string) ([]float32, error)
 }
 
 type dataMgr struct {
 	embedFunc embedFunction
 }
 
-func (d *dataMgr) Execute(data map[string]string, userID int64) (string, error) {
+func (d *dataMgr) Execute(ctx context.Context, data map[string]string, userID int64) (string, error) {
 	switch data["method"] {
 	case "write":
 		ctx := context.Background()
-		embedText, err := d.embedFunc.GetEmbed(data["data"])
+		embedText, err := d.embedFunc.GetEmbed(ctx, data["data"])
 		if err != nil {
 			return "", err
 		}
@@ -31,7 +31,7 @@ func (d *dataMgr) Execute(data map[string]string, userID int64) (string, error) 
 		return fmt.Sprintf("Была вызвана запись в память '%s'", data), nil
 	case "search":
 		ctx := context.Background()
-		embedText, err := d.embedFunc.GetEmbed(data["data"])
+		embedText, err := d.embedFunc.GetEmbed(ctx, data["data"])
 		if err != nil {
 			return "", err
 		}

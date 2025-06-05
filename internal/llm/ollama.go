@@ -120,7 +120,7 @@ func (c *OllamaClient) sendRequest(ctx context.Context, url string, body []byte)
 func handleToolCalls(ctx context.Context, calls []ToolCall, userID int64) (string, error) {
 	var result string
 	for _, f := range calls {
-		res, err := tools.CallFunctionsByModel(f.Function.Name, f.Function.Arguments, userID)
+		res, err := tools.CallFunctionsByModel(ctx, f.Function.Name, f.Function.Arguments, userID)
 		if err != nil {
 			log.Printf("error with tool %s: %v", f.Function.Name, err)
 			result += fmt.Sprintf("\n\n %s: error", f.Function.Name)

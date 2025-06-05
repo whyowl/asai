@@ -40,7 +40,7 @@ func Run(ctx context.Context, a *core.Agent, token string) {
 
 			msg := update.Message
 			if config.AppConfig.Telegram.WhiteList[strconv.FormatInt(msg.Chat.ID, 10)] {
-				reply, err := a.HandleInput(msg.Chat.ID, msg.Text)
+				reply, err := a.HandleInput(ctx, msg.Chat.ID, msg.Text)
 				if err != nil {
 					b.SendMessage(ctx, &bot.SendMessageParams{
 						ChatID: msg.Chat.ID,
@@ -68,6 +68,6 @@ func Run(ctx context.Context, a *core.Agent, token string) {
 		log.Fatal(err)
 	}
 
-	log.Println("[telegram] bot started...")
+	log.Println("Telegram bot started...")
 	b.Start(ctx)
 }

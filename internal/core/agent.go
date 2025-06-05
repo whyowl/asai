@@ -3,6 +3,7 @@ package core
 import (
 	"asai/internal/config"
 	"asai/internal/shared"
+	"context"
 	"log"
 	"strings"
 	"time"
@@ -35,32 +36,32 @@ func NewAgent(prompt string) *Agent {
 
 }
 
-func (a *Agent) HandleInput(userID int64, input string) (string, error) {
+func (a *Agent) HandleInput(ctx context.Context, userID int64, input string) (string, error) {
 
-	ctx := a.memory.LoadContext(userID)
+	messsageContext := a.memory.LoadContext(userID)
 	systemPrompt := buildSystemPrompt(a.systemPrompt, time.Now(), "Telegram", "")
-	messages := ctx.WithNewUserInput(systemPrompt, input)
+	messages := messsageContext.WithNewUserInput(systemPrompt, input)
 
-	response, err := a.llm.Generate(messages, tools.GetFunctionsForModel(), userID)
+	response, err := a.llm.Generate(ctx, messages, tools.GetFunctionsForModel(), userID)
 	if err != nil {
 		log.Println(err)
 		return "", err
 	}
-	ctx.Messages = append(ctx.Messages, response...)
-	a.memory.SaveContext(userID, ctx)
+	messsageContext.Messages = append(messsageContext.Messages, response...)
+	a.memory.SaveContext(userID, messsageContext)
 	return response[len(response)-1].Content, nil
 }
 
-func (a *Agent) GetDimensions() (int, error) {
-	vector, err := a.llm.Embed("test")
+func (a *Agent) GetDimensions(ctx context.Context) (int, error) {
+	vector, err := a.llm.Embed(ctx, "test")
 	if err != nil {
 		return 0, err
 	}
 	return len(vector), nil
 }
 
-func (a *Agent) GetEmbed(n string) ([]float32, error) {
-	embedText, err := a.llm.Embed(n)
+func (a *Agent) GetEmbed(ctx context.Context, n string) ([]float32, error) {
+	embedText, err := a.llm.Embed(ctx, n)
 	if err != nil {
 		return []float32{}, err
 	}

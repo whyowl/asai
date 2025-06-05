@@ -5,12 +5,9 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pgvector/pgvector-go"
-	"strings"
 )
 
 func InsertEmbedding(ctx context.Context, db *pgxpool.Pool, table, userID, text string, embedding []float32) error {
-	//vectorStr := vectorToSQLArray(embedding)
-	//fmt.Println("Embedding length:", len(embedding))
 	vec := pgvector.NewVector(embedding)
 
 	query := fmt.Sprintf(`
@@ -49,12 +46,4 @@ func QuerySimilarEmbeddings(ctx context.Context, db *pgxpool.Pool, table, userID
 	}
 
 	return results, nil
-}
-
-func vectorToSQLArray(vec []float32) string {
-	parts := make([]string, len(vec))
-	for i, v := range vec {
-		parts[i] = fmt.Sprintf("%f", v)
-	}
-	return fmt.Sprintf("vector[%s]", strings.Join(parts, ","))
 }

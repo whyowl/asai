@@ -16,7 +16,7 @@ func Run(ctx context.Context, a *core.Agent) {
 		}
 
 		json.NewDecoder(r.Body).Decode(&req)
-		resp, err := a.HandleInput(req.UserID, req.Input)
+		resp, err := a.HandleInput(ctx, req.UserID, req.Input)
 		if err != nil {
 			http.Error(w, "Error", 500) //сделать ошибку
 			return

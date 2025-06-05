@@ -21,7 +21,7 @@ func Run(ctx context.Context, a *core.Agent) {
 			break
 		}
 
-		resp, err := a.HandleInput(chatID, input)
+		resp, err := a.HandleInput(ctx, chatID, input)
 		if err != nil {
 			fmt.Println("⚠️ Ошибка:", err)
 			continue
