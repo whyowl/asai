@@ -1,8 +1,11 @@
 package tools
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
-func toConsoleEnter(data map[string]string, userID int64) (string, error) {
+func toConsoleEnter(ctx context.Context, data map[string]string, userID int64) (string, error) {
 	fmt.Println(userID, data["text"])
 	return fmt.Sprintf("'%s' was printed to console", data["text"]), nil
 }

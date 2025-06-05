@@ -71,6 +71,8 @@ func ensureSchema(ctx context.Context, pool *pgxpool.Pool, tableName string, vec
 	}
 
 	createTableSQL := fmt.Sprintf(`
+	CREATE EXTENSION IF NOT EXISTS vector;
+
 		CREATE TABLE %s (
 			id SERIAL PRIMARY KEY,
 			user_id TEXT,

@@ -1,10 +1,12 @@
 package tools
 
+import "context"
+
 type weather struct {
 	data string
 }
 
-func (*weather) Execute(data map[string]string, userID int64) (string, error) {
+func (*weather) Execute(ctx context.Context, data map[string]string, userID int64) (string, error) {
 	return "Эта заглушка, сервис погоды пока не работает. Предупредите пользователя, что временно не можешь дать данные", nil
 }
 

@@ -1,12 +1,14 @@
 package tools
 
+import "context"
+
 var functionRegistry = map[string]Function{}
 
 type Function struct {
-	Name        string                                         `json:"name"`
-	Description string                                         `json:"description"`
-	Handler     func(map[string]string, int64) (string, error) `json:"-"`
-	Parameters  FunctionParameterSpec                          `json:"parameters"`
+	Name        string                                                          `json:"name"`
+	Description string                                                          `json:"description"`
+	Handler     func(context.Context, map[string]string, int64) (string, error) `json:"-"`
+	Parameters  FunctionParameterSpec                                           `json:"parameters"`
 }
 
 type FunctionParameterSpec struct {
@@ -38,8 +40,8 @@ func GetFunctionsForModel() []Function {
 	return functions
 }
 
-func CallFunctionsByModel(name string, arg map[string]string, userID int64) (string, error) {
-	response, err := functionRegistry[name].Handler(arg, userID)
+func CallFunctionsByModel(ctx context.Context, name string, arg map[string]string, userID int64) (string, error) {
+	response, err := functionRegistry[name].Handler(ctx, arg, userID)
 	if err != nil {
 		return "", err
 	}
