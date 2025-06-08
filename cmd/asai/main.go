@@ -38,24 +38,19 @@ func main() {
 	defer stop()
 
 	config.Load()
-	llm.Providers["gigachat"] = llm.NewGigaChatClient()
-	llm.Providers["ollama"] = llm.NewOllamaClient()
-
-	agent := core.NewAgent(systemPrompt)
-
-	var dimension, err = agent.GetDimensions(ctx)
-	if err != nil {
-		log.Fatalf("Couldn't get embed: %v", err)
-	}
-
-	err = memory.Init(ctx, dimension)
-	if err != nil {
-		log.Fatalf("Database init failed: %v", err)
-	}
+	initLLMProviders()
+	agent := initAgent(ctx)
 	defer memory.DB.Close()
 
-	tools.InitDataMgr(agent)
+	startInterface(ctx, agent)
 
+	<-ctx.Done()
+	log.Println("Got stop signal")
+	time.Sleep(5 * time.Second)
+	log.Println("End work")
+}
+
+func startInterface(ctx context.Context, agent *core.Agent) {
 	mode := flag.String("mode", "telegram", "Interface mode: cli | http | telegram")
 	flag.Parse()
 
@@ -69,15 +64,24 @@ func main() {
 	default:
 		log.Fatalf("Unknown mode: %s", *mode)
 	}
+}
 
-	for {
-		select {
-		case <-ctx.Done():
-			log.Println("Got stop signal")
-			time.Sleep(5 * time.Second)
-			log.Println("End work")
-			return
-		case <-time.After(1 * time.Second):
-		}
+func initLLMProviders() {
+	llm.Providers["gigachat"] = llm.NewGigaChatClient()
+	llm.Providers["ollama"] = llm.NewOllamaClient()
+}
+
+func initAgent(ctx context.Context) *core.Agent {
+	agent := core.NewAgent(systemPrompt)
+	dimension, err := agent.GetDimensions(ctx)
+	if err != nil {
+		log.Fatalf("Couldn't get embed: %v", err)
 	}
+
+	if err := memory.Init(ctx, dimension); err != nil {
+		log.Fatalf("Database init failed: %v", err)
+	}
+
+	tools.InitDataMgr(agent)
+	return agent
 }
