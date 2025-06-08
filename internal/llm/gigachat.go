@@ -32,51 +32,30 @@ func NewGigaChatClient() *gigachatClient {
 
 func (c *gigachatClient) Generate(ctx context.Context, messages []shared.Message, functions []tools.Function, userID int64) ([]shared.Message, error) {
 
-	if c.accessToken.ExpiresAt <= time.Now().Unix() {
-		err := c.accessRequest(config.AppConfig.LLM.GigaChat.Secret)
-		if err != nil {
-			return []shared.Message{}, fmt.Errorf("error request access: %s", err)
-		}
+	if err := c.ensureAccessToken(ctx); err != nil {
+		return nil, fmt.Errorf("failed to get access token: %w", err)
 	}
 
 	url := fmt.Sprintf("%s/api/v1/chat/completions", c.ApiBase)
-	reqBody := gigachatRequest{
-		ChatRequest: ChatRequest{
-			Model:    c.Model,
-			Messages: messages,
-		},
-		Functions: functions,
-	}
-	bodyBytes, err := json.Marshal(reqBody)
-	if err != nil {
-		return []shared.Message{}, err
-	}
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
-	if err != nil {
-		return []shared.Message{}, err
-	}
-	req.Header.Set("Authorization", "Bearer "+c.accessToken.Token)
-	req.Header.Set("Content-Type", "application/json")
 
-	client := newHTTPClientWithCert(config.AppConfig.LLM.GigaChat.Certificate)
-
-	resp, err := client.Do(req)
+	reqBody, err := c.buildRequestBody(messages, functions)
 	if err != nil {
-		return []shared.Message{}, err
+		return nil, fmt.Errorf("failed to build request body: %w", err)
 	}
-	defer resp.Body.Close()
 
-	respBytes, err := io.ReadAll(resp.Body)
+	respBytes, err := c.sendRequest(ctx, url, reqBody)
 	if err != nil {
-		return []shared.Message{}, err
+		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
+
 	var respObj gigachatResponse
-	err = json.Unmarshal(respBytes, &respObj)
-	if err != nil {
-		return []shared.Message{}, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
+
+	if err = json.Unmarshal(respBytes, &respObj); err != nil {
+		return nil, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
 	}
+
 	if len(respObj.Choices) == 0 {
-		return []shared.Message{}, fmt.Errorf("error empty response: %v, body: %s", err, string(respBytes))
+		return nil, fmt.Errorf("error empty response: %v, body: %s", err, string(respBytes))
 	}
 
 	response := shared.Message{
@@ -87,13 +66,38 @@ func (c *gigachatClient) Generate(ctx context.Context, messages []shared.Message
 	return []shared.Message{response}, nil
 }
 
+func (c *gigachatClient) buildRequestBody(messages []shared.Message, functions []tools.Function) ([]byte, error) {
+	reqBody := gigachatRequest{
+		ChatRequest: ChatRequest{
+			Model:    c.Model,
+			Messages: messages,
+		},
+		Functions: functions,
+	}
+	return json.Marshal(reqBody)
+}
+
+func (c *gigachatClient) sendRequest(ctx context.Context, url string, body []byte) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.accessToken.Token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := newHTTPClientWithCert(config.AppConfig.LLM.GigaChat.Certificate).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return io.ReadAll(resp.Body)
+}
+
 func (c *gigachatClient) Embed(ctx context.Context, input string) ([]float32, error) {
 
-	if c.accessToken.ExpiresAt <= time.Now().Unix() {
-		err := c.accessRequest(config.AppConfig.LLM.GigaChat.Secret)
-		if err != nil {
-			return []float32{}, fmt.Errorf("error request access: %s", err)
-		}
+	if err := c.ensureAccessToken(ctx); err != nil {
+		return nil, fmt.Errorf("failed to get access token: %w", err)
 	}
 
 	url := fmt.Sprintf("%s/api/v1/embeddings", c.ApiBase)
@@ -103,45 +107,39 @@ func (c *gigachatClient) Embed(ctx context.Context, input string) ([]float32, er
 	}
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return []float32{}, err
+		return nil, err
 	}
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
-	if err != nil {
-		return []float32{}, err
-	}
-	req.Header.Set("Authorization", "Bearer "+c.accessToken.Token)
-	req.Header.Set("Content-Type", "application/json")
 
-	client := newHTTPClientWithCert(config.AppConfig.LLM.GigaChat.Certificate)
-
-	resp, err := client.Do(req)
+	respBytes, err := c.sendRequest(ctx, url, bodyBytes)
 	if err != nil {
-		return []float32{}, err
+		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
 
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return []float32{}, err
-	}
 	var respObj gigachatEmbedResponse
 	err = json.Unmarshal(respBytes, &respObj)
 	if err != nil {
-		return []float32{}, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
+		return nil, fmt.Errorf("error decoding response: %v, body: %s", err, string(respBytes))
 	}
 	if len(respObj.Data) == 0 {
-		return []float32{}, fmt.Errorf("error empty response: %v, body: %s", err, string(respBytes))
+		return nil, fmt.Errorf("error empty response: %v, body: %s", err, string(respBytes))
 	}
 	return respObj.Data[0].Embedding, nil
 }
 
-func (c *gigachatClient) accessRequest(clientSecret string) error {
+func (c *gigachatClient) ensureAccessToken(ctx context.Context) error {
+	if c.accessToken.ExpiresAt > time.Now().Unix() {
+		return nil
+	}
+	return c.accessRequest(ctx, config.AppConfig.LLM.GigaChat.Secret)
+}
+
+func (c *gigachatClient) accessRequest(ctx context.Context, clientSecret string) error {
 
 	rqUID := uuid.New().String()
 	form := url.Values{}
 	form.Set("scope", config.AppConfig.LLM.GigaChat.Scope)
 
-	req, err := http.NewRequest("POST", config.AppConfig.LLM.GigaChat.TokenUrl, strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(ctx, "POST", config.AppConfig.LLM.GigaChat.TokenUrl, strings.NewReader(form.Encode()))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}

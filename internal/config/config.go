@@ -51,9 +51,10 @@ type GigaChatConfig struct {
 }
 
 type GeneralConfig struct {
-	LogLevel    int
-	LLMProvider string
-	UseTelegram bool
+	LogLevel      int
+	LLMProvider   string
+	EmbedProvider string
+	UseTelegram   bool
 }
 
 var AppConfig *Config
@@ -96,8 +97,9 @@ func Load() {
 			ContextLimit: contextLimit,
 		},
 		General: GeneralConfig{
-			LLMProvider: getEnv("LLM_PROVIDER", "ollama"),
-			UseTelegram: useTelegram,
+			LLMProvider:   getEnv("LLM_PROVIDER", "ollama"),
+			EmbedProvider: getEnv("EMBED_PROVIDER", "ollama"),
+			UseTelegram:   useTelegram,
 		},
 	}
 	log.Println("Config loaded")

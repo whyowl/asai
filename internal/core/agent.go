@@ -17,8 +17,17 @@ type ContextManager interface {
 	SaveContext(userID int64, ctx *shared.MessageHistory)
 }
 
+type llmModel interface {
+	Generate(ctx context.Context, prompt []shared.Message, tools []tools.Function, userId int64) ([]shared.Message, error)
+}
+
+type embedModel interface {
+	Embed(ctx context.Context, input string) ([]float32, error)
+}
+
 type Agent struct {
-	llm          llm.LLM
+	llm          llmModel
+	embed        embedModel
 	memory       ContextManager
 	systemPrompt string
 }
@@ -30,6 +39,7 @@ func NewAgent(prompt string) *Agent {
 		config.AppConfig.LLM.ContextLimit)
 	return &Agent{
 		llm:          llm.Providers[config.AppConfig.General.LLMProvider],
+		embed:        llm.Providers[config.AppConfig.General.EmbedProvider],
 		memory:       shared.NewInMemoryContextManager(config.AppConfig.LLM.ContextLimit),
 		systemPrompt: prompt,
 	}
@@ -53,7 +63,7 @@ func (a *Agent) HandleInput(ctx context.Context, userID int64, input string) (st
 }
 
 func (a *Agent) GetDimensions(ctx context.Context) (int, error) {
-	vector, err := a.llm.Embed(ctx, "test")
+	vector, err := a.embed.Embed(ctx, "test")
 	if err != nil {
 		return 0, err
 	}
@@ -61,7 +71,7 @@ func (a *Agent) GetDimensions(ctx context.Context) (int, error) {
 }
 
 func (a *Agent) GetEmbed(ctx context.Context, n string) ([]float32, error) {
-	embedText, err := a.llm.Embed(ctx, n)
+	embedText, err := a.embed.Embed(ctx, n)
 	if err != nil {
 		return []float32{}, err
 	}
